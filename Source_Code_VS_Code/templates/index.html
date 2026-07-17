@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Fake News Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght=400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <style>
+    body { background: black; color: white; }
+  </style>
+  <div class="wrapper">
+
+    <div class="header">
+      <div class="badge">AI Powered</div>
+      <h1>Fake News <span>Detector</span></h1>
+      <p class="subtitle">Paste any news article — our ML model will analyze it instantly</p>
+    </div>
+
+    <div class="card">
+      <label class="input-label">News Article</label>
+      <textarea id="news-input" placeholder="Paste your news article or headline here..."></textarea>
+
+      <div class="char-row">
+        <span class="char-count" id="char-count">0 characters</span>
+        <button class="clear-btn" onclick="clearInput()">Clear</button>
+      </div>
+
+      <button class="analyze-btn" onclick="analyzeNews()" id="analyze-btn">
+        Analyze Article
+      </button>
+
+      <div id="loading">
+        <span class="spinner"></span> Analyzing with ML model...
+      </div>
+
+      <div id="result-box">
+        <div class="result-top">
+          <div class="verdict" id="verdict-text"></div>
+          <div class="confidence-pill" id="conf-pill"></div>
+        </div>
+        <div class="progress-label">Confidence Score</div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-label">Prediction</div>
+            <div class="stat-val" id="stat-pred">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Confidence</div>
+            <div class="stat-val" id="stat-conf">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 1.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <label class="input-label" style="margin:0;">Recent History</label>
+        <button onclick="clearHistory()" class="clear-btn" style="color:#f87171;">Clear All</button>
+      </div>
+      <div id="history-list">
+        <p style="color:#64748b; font-size:13px; text-align:center;">Koi history nahi abhi...</p>
+      </div>
+    </div>
+
+    <div class="footer">Fake News Detector · ML Project · 4th Semester</div>
+  </div>
+
+  <script>
+    const textarea  = document.getElementById("news-input");
+    const charCount = document.getElementById("char-count");
+
+    textarea.addEventListener("input", () => {
+      charCount.textContent = textarea.value.length + " characters";
+    });
+
+    window.onload = loadHistory;
+
+    function clearInput() {
+      textarea.value = "";
+      charCount.textContent = "0 characters";
+      document.getElementById("result-box").style.display = "none";
+    }
+
+    async function analyzeNews() {
+      const text = textarea.value.trim();
+      if (!text)            { alert("Pehle koi news paste karo!"); return; }
+      if (text.length < 10) { alert("Thoda lamba text paste karo!"); return; }
+
+      const btn = document.getElementById("analyze-btn");
+      btn.disabled = true;
+      document.getElementById("loading").style.display    = "block";
+      document.getElementById("result-box").style.display = "none";
+
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text })
+        });
+
+        const data   = await response.json();
+        const isFake = data.prediction === "FAKE NEWS";
+        const conf   = data.confidence;
+
+        const resultBox = document.getElementById("result-box");
+        resultBox.style.display = "block";
+        resultBox.className = isFake ? "result-fake" : "result-real";
+
+        const verdict = document.getElementById("verdict-text");
+        verdict.textContent = isFake ? "❌  FAKE NEWS" : "✅  REAL NEWS";
+
+        const pill = document.getElementById("conf-pill");
+        pill.className   = "confidence-pill " + (isFake ? "pill-fake" : "pill-real");
+        pill.textContent = conf + "% sure";
+
+        const fill = document.getElementById("progress-fill");
+        fill.className = "progress-fill " + (isFake ? "fill-fake" : "fill-real");
+        setTimeout(() => { fill.style.width = conf + "%"; }, 50);
+
+        document.getElementById("stat-pred").textContent = data.prediction;
+        document.getElementById("stat-conf").textContent = conf + "%";
+
+        loadHistory();
+
+      } catch (err) {
+        alert("Server communication issue!");
+      } finally {
+        btn.disabled = false;
+        document.getElementById("loading").style.display = "none";
+      }
+    }
+
+    async function loadHistory() {
+      try {
+        const res  = await fetch("/history");
+        const data = await res.json();
+        const list = document.getElementById("history-list");
+
+        if (data.length === 0) {
+          list.innerHTML = '<p style="color:#64748b;font-size:13px;text-align:center;">Koi history nahi abhi...</p>';
+          return;
+        }
+
+        list.innerHTML = data.map(item => {
+          const checkFake = item.prediction === 'FAKE NEWS';
+          return `
+            <div class="history-item">
+              <span class="history-text">${item.text}</span>
+              <div class="history-meta">
+                <span class="history-badge ${checkFake ? 'badge-fake' : 'badge-real'}">
+                  ${checkFake ? '❌ FAKE' : '✅ REAL'}
+                </span>
+                <span class="history-time">${item.confidence}% · ${item.time}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch(e) {
+        console.log("History error.");
+      }
+    }
+
+    async function clearHistory() {
+      if (!confirm("Saari history delete karni hai?")) return;
+      try {
+        await fetch("/clear", { method: "DELETE" });
+        loadHistory();
+      } catch(e) {
+        alert("Error handling request.");
+      }
+    }
+  </script>
+</body>
+</html>
