@@ -102,6 +102,7 @@ GitHub: https://github.com/RAFAY-455
 ## ⭐ If you like this project
 
 Please give this repository a Star ⭐
+
 ## 📷 PROJECT SCREENSHOTS
 
 ### MAIN INTERFACE
