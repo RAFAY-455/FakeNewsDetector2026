@@ -102,3 +102,11 @@ GitHub: https://github.com/RAFAY-455
 ## ⭐ If you like this project
 
 Please give this repository a Star ⭐
+## 📷 Screenshots
+
+### Home Page
+![Home Page](screenshots/MAIN INTERFACE.png)
+
+
+### Result
+![Result](screenshots/MAIN INTERFACE OF REAL NEWS.png)
